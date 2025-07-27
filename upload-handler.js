@@ -93,6 +93,56 @@ class IconUploadHandler {
         }
     }
 
+    // Save file from buffer (for direct file upload)
+    async saveFileFromBuffer(fileBuffer, originalName, category, customFolder = null) {
+        try {
+            // Create a temporary file object for validation
+            const tempFile = {
+                originalname: originalName,
+                size: fileBuffer.length
+            };
+
+            // Validate file
+            this.validateFile(tempFile);
+
+            // Determine final category and file name
+            const finalCategory = customFolder ? `custom/${this.sanitizeFolderName(customFolder)}` : category;
+            const finalName = this.sanitizeFileName(path.parse(originalName).name);
+            const fileExt = path.extname(originalName).toLowerCase();
+            const fileName = finalName + fileExt;
+
+            // Create directory path
+            const categoryDir = path.join(this.iconsDir, finalCategory);
+            this.ensureDirectoryExists(categoryDir);
+
+            // Full file path
+            const filePath = path.join(categoryDir, fileName);
+
+            // Check if file already exists
+            if (fs.existsSync(filePath)) {
+                throw new Error(`File ${fileName} already exists in ${finalCategory}`);
+            }
+
+            // Save file directly from buffer
+            fs.writeFileSync(filePath, fileBuffer);
+
+            // Create .gitkeep file if directory is empty
+            this.createGitkeepIfNeeded(categoryDir);
+
+            return {
+                success: true,
+                fileName: fileName,
+                category: finalCategory,
+                filePath: filePath,
+                size: fileBuffer.length,
+                url: `https://cdn.jsdelivr.net/gh/dwirx/my-icons@main/icons/${finalCategory}/${fileName}`
+            };
+
+        } catch (error) {
+            throw error;
+        }
+    }
+
     // Write file to destination
     async writeFile(sourcePath, destPath) {
         return new Promise((resolve, reject) => {
@@ -190,6 +240,90 @@ class IconUploadHandler {
         } catch (error) {
             console.error('Error listing icons:', error);
             return [];
+        }
+    }
+
+    // Get all available categories (folders)
+    async getCategories() {
+        const categories = [];
+        
+        try {
+            const items = fs.readdirSync(this.iconsDir);
+            
+            for (const item of items) {
+                const itemPath = path.join(this.iconsDir, item);
+                const stat = fs.statSync(itemPath);
+                
+                if (stat.isDirectory()) {
+                    // Check if it's a custom folder (has subfolders)
+                    const subItems = fs.readdirSync(itemPath);
+                    const hasSubFolders = subItems.some(subItem => {
+                        const subItemPath = path.join(itemPath, subItem);
+                        return fs.statSync(subItemPath).isDirectory();
+                    });
+                    
+                    if (item === 'custom' && hasSubFolders) {
+                        // Add custom subfolders
+                        for (const subItem of subItems) {
+                            const subItemPath = path.join(itemPath, subItem);
+                            if (fs.statSync(subItemPath).isDirectory()) {
+                                categories.push(`custom/${subItem}`);
+                            }
+                        }
+                    } else if (item !== 'custom') {
+                        // Add main categories
+                        categories.push(item);
+                    }
+                }
+            }
+            
+            return categories;
+            
+        } catch (error) {
+            console.error('Error getting categories:', error);
+            return [];
+        }
+    }
+
+    // Get folder structure
+    async getFolderStructure() {
+        const structure = {};
+        
+        try {
+            const items = fs.readdirSync(this.iconsDir);
+            
+            for (const item of items) {
+                const itemPath = path.join(this.iconsDir, item);
+                const stat = fs.statSync(itemPath);
+                
+                if (stat.isDirectory()) {
+                    if (item === 'custom') {
+                        // Handle custom folder structure
+                        const subItems = fs.readdirSync(itemPath);
+                        structure[item] = {};
+                        
+                        for (const subItem of subItems) {
+                            const subItemPath = path.join(itemPath, subItem);
+                            if (fs.statSync(subItemPath).isDirectory()) {
+                                const files = fs.readdirSync(subItemPath)
+                                    .filter(file => !file.startsWith('.') && this.supportedFormats.includes(path.extname(file).toLowerCase()));
+                                structure[item][subItem] = files;
+                            }
+                        }
+                    } else {
+                        // Handle main categories
+                        const files = fs.readdirSync(itemPath)
+                            .filter(file => !file.startsWith('.') && this.supportedFormats.includes(path.extname(file).toLowerCase()));
+                        structure[item] = files;
+                    }
+                }
+            }
+            
+            return structure;
+            
+        } catch (error) {
+            console.error('Error getting folder structure:', error);
+            return {};
         }
     }
 

@@ -170,6 +170,9 @@ async function loadIcons() {
             icons = await loadMockIcons();
         }
         
+        // Update category filters with actual folders
+        await updateCategoryFilters();
+        
         showLoading(false);
         
         if (currentTab === 'gallery') {
@@ -194,6 +197,55 @@ async function loadIcons() {
         
         showNotification('Loaded icons (fallback mode)', 'info');
     }
+}
+
+// Update category filters with actual folders
+async function updateCategoryFilters() {
+    try {
+        const response = await fetch('/api/categories');
+        const data = await response.json();
+        
+        if (data.success) {
+            const categories = data.categories;
+            
+            // Update gallery filter
+            updateSelectOptions(elements.categoryFilter, categories);
+            
+            // Update manage filter
+            updateSelectOptions(elements.manageCategoryFilter, categories);
+            
+            // Update upload form category
+            updateSelectOptions(elements.iconCategory, categories);
+        }
+    } catch (error) {
+        console.error('Error updating category filters:', error);
+    }
+}
+
+// Update select options
+function updateSelectOptions(selectElement, categories) {
+    if (!selectElement) return;
+    
+    // Keep the first option (All Categories or Select Category)
+    const firstOption = selectElement.options[0];
+    selectElement.innerHTML = '';
+    selectElement.appendChild(firstOption);
+    
+    // Add category options
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = getCategoryDisplayName(category);
+        selectElement.appendChild(option);
+    });
+}
+
+// Get display name for category
+function getCategoryDisplayName(category) {
+    if (category.startsWith('custom/')) {
+        return `Custom: ${category.split('/')[1]}`;
+    }
+    return category.charAt(0).toUpperCase() + category.slice(1);
 }
 
 // Load mock icons as fallback
@@ -506,12 +558,8 @@ async function uploadFile(file, name, category, customFolder) {
                 customContainer.style.display = 'none';
             }
             
-            // Update views
-            if (currentTab === 'gallery') {
-                renderGallery();
-            } else if (currentTab === 'manage') {
-                renderManage();
-            }
+            // Reload icons and update filters
+            await loadIcons();
             
             showNotification('Icon uploaded successfully!', 'success');
         } else {
@@ -603,14 +651,8 @@ async function deleteIcon(name, category) {
             const result = await response.json();
             
             if (result.success) {
-                // Remove from local icons array
-                icons = icons.filter(icon => !(icon.name === name && icon.category === category));
-                
-                if (currentTab === 'gallery') {
-                    renderGallery();
-                } else if (currentTab === 'manage') {
-                    renderManage();
-                }
+                // Reload icons and update filters
+                await loadIcons();
                 
                 showNotification('Icon deleted successfully!', 'success');
             } else {

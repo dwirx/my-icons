@@ -150,6 +150,30 @@ function handleApiRequest(req, res, parsedUrl) {
                 res.end(JSON.stringify({ success: false, error: error.message }));
             });
     }
+    else if (pathname === '/api/categories' && req.method === 'GET') {
+        // Get all categories
+        uploadHandler.getCategories()
+            .then(categories => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, categories }));
+            })
+            .catch(error => {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            });
+    }
+    else if (pathname === '/api/structure' && req.method === 'GET') {
+        // Get folder structure
+        uploadHandler.getFolderStructure()
+            .then(structure => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, structure }));
+            })
+            .catch(error => {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            });
+    }
     else if (pathname === '/api/upload' && req.method === 'POST') {
         // Handle file upload
         handleFileUpload(req, res);
@@ -186,47 +210,31 @@ function handleApiRequest(req, res, parsedUrl) {
 
 // Handle file upload
 function handleFileUpload(req, res) {
-    // For now, we'll use a simple multipart parser
-    // In production, you should use a proper library like multer
-    let body = '';
+    const chunks = [];
+    
     req.on('data', chunk => {
-        body += chunk.toString();
+        chunks.push(chunk);
     });
+    
     req.on('end', () => {
         try {
-            // Parse multipart form data (simplified)
-            const boundary = req.headers['content-type'].split('boundary=')[1];
-            const parts = body.split('--' + boundary);
+            const buffer = Buffer.concat(chunks);
+            const contentType = req.headers['content-type'];
             
-            let fileData = null;
-            let category = '';
-            let customFolder = '';
-            let description = '';
-            
-            for (const part of parts) {
-                if (part.includes('Content-Disposition: form-data')) {
-                    if (part.includes('name="file"')) {
-                        // Extract file data (simplified)
-                        const fileMatch = part.match(/filename="([^"]+)"/);
-                        if (fileMatch) {
-                            fileData = {
-                                originalname: fileMatch[1],
-                                size: part.length,
-                                path: '/tmp/' + fileMatch[1] // Simplified
-                            };
-                        }
-                    } else if (part.includes('name="category"')) {
-                        const match = part.match(/name="category"\r?\n\r?\n([^\r\n]+)/);
-                        if (match) category = match[1];
-                    } else if (part.includes('name="customFolder"')) {
-                        const match = part.match(/name="customFolder"\r?\n\r?\n([^\r\n]+)/);
-                        if (match) customFolder = match[1];
-                    } else if (part.includes('name="description"')) {
-                        const match = part.match(/name="description"\r?\n\r?\n([^\r\n]+)/);
-                        if (match) description = match[1];
-                    }
-                }
+            if (!contentType || !contentType.includes('multipart/form-data')) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: 'Invalid content type' }));
+                return;
             }
+            
+            // Parse multipart form data
+            const boundary = contentType.split('boundary=')[1];
+            const parts = parseMultipartData(buffer, boundary);
+            
+            const fileData = parts.find(part => part.name === 'file');
+            const category = parts.find(part => part.name === 'category')?.value || '';
+            const customFolder = parts.find(part => part.name === 'customFolder')?.value || '';
+            const description = parts.find(part => part.name === 'description')?.value || '';
             
             if (!fileData || !category) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -234,8 +242,8 @@ function handleFileUpload(req, res) {
                 return;
             }
             
-            // Save file
-            uploadHandler.saveFile(fileData, category, customFolder || null)
+            // Save file using buffer
+            uploadHandler.saveFileFromBuffer(fileData.data, fileData.filename, category, customFolder || null)
                 .then(result => {
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify(result));
@@ -250,6 +258,75 @@ function handleFileUpload(req, res) {
             res.end(JSON.stringify({ success: false, error: error.message }));
         }
     });
+}
+
+// Parse multipart form data
+function parseMultipartData(buffer, boundary) {
+    const parts = [];
+    const boundaryBuffer = Buffer.from('--' + boundary);
+    const endBoundaryBuffer = Buffer.from('--' + boundary + '--');
+    
+    let start = buffer.indexOf(boundaryBuffer);
+    let end = buffer.indexOf(endBoundaryBuffer);
+    
+    if (start === -1 || end === -1) {
+        throw new Error('Invalid multipart data');
+    }
+    
+    const data = buffer.slice(start + boundaryBuffer.length, end);
+    const partBoundary = Buffer.from('\r\n--' + boundary);
+    
+    let partStart = 0;
+    let partEnd = data.indexOf(partBoundary);
+    
+    while (partEnd !== -1) {
+        const partData = data.slice(partStart, partEnd);
+        const part = parsePart(partData);
+        if (part) parts.push(part);
+        
+        partStart = partEnd + partBoundary.length;
+        partEnd = data.indexOf(partBoundary, partStart);
+    }
+    
+    // Parse last part
+    const lastPartData = data.slice(partStart);
+    const lastPart = parsePart(lastPartData);
+    if (lastPart) parts.push(lastPart);
+    
+    return parts;
+}
+
+// Parse individual part
+function parsePart(partData) {
+    const headerEnd = partData.indexOf('\r\n\r\n');
+    if (headerEnd === -1) return null;
+    
+    const headers = partData.slice(0, headerEnd).toString();
+    const data = partData.slice(headerEnd + 4);
+    
+    // Parse headers
+    const nameMatch = headers.match(/name="([^"]+)"/);
+    const filenameMatch = headers.match(/filename="([^"]+)"/);
+    
+    if (!nameMatch) return null;
+    
+    const name = nameMatch[1];
+    const filename = filenameMatch ? filenameMatch[1] : null;
+    
+    if (filename) {
+        // File part
+        return {
+            name,
+            filename,
+            data
+        };
+    } else {
+        // Text part
+        return {
+            name,
+            value: data.toString().trim()
+        };
+    }
 }
 
 // Start server
