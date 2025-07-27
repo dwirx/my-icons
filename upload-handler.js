@@ -111,6 +111,8 @@ class IconUploadHandler {
             const finalName = this.sanitizeFileName(path.parse(originalName).name);
             const fileExt = path.extname(originalName).toLowerCase();
             const fileName = finalName + fileExt;
+            
+            console.log(`Uploading file: ${originalName} -> ${fileName} to ${finalCategory}`);
 
             // Create directory path
             const categoryDir = path.join(this.iconsDir, finalCategory);

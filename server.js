@@ -236,6 +236,7 @@ function handleFileUpload(req, res) {
             const customFolder = parts.find(part => part.name === 'customFolder')?.value || '';
             const description = parts.find(part => part.name === 'description')?.value || '';
             const compress = parts.find(part => part.name === 'compress')?.value !== 'false'; // Default to true
+            const customName = parts.find(part => part.name === 'customName')?.value || '';
             
             if (!fileData || !category) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -243,8 +244,11 @@ function handleFileUpload(req, res) {
                 return;
             }
             
+            // Use custom name if provided, otherwise use original filename
+            const finalFilename = customName ? `${customName}${path.extname(fileData.filename)}` : fileData.filename;
+            
             // Save file using buffer with compression
-            uploadHandler.saveFileFromBuffer(fileData.data, fileData.filename, category, customFolder || null, compress)
+            uploadHandler.saveFileFromBuffer(fileData.data, finalFilename, category, customFolder || null, compress)
                 .then(result => {
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify(result));

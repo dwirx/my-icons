@@ -120,7 +120,7 @@ function setupEventListeners() {
     // Upload form
     elements.uploadForm.addEventListener('submit', handleUpload);
     elements.iconFile.addEventListener('change', handleFileSelect);
-    elements.iconName.addEventListener('input', updatePreviewFromInputs);
+    elements.iconName.addEventListener('input', updateNamePreview);
     elements.iconCategory.addEventListener('change', updatePreviewFromInputs);
     elements.compressIcon.addEventListener('change', updatePreviewFromInputs);
 
@@ -519,7 +519,10 @@ function showLivePreview(file) {
     const compress = elements.compressIcon.checked;
     
     // Update preview elements
-    elements.previewName.textContent = name;
+    const finalName = sanitizeFileName(name);
+    const fileExt = getFileExtension(file.name);
+    const finalFileName = finalName + fileExt;
+    elements.previewName.textContent = finalFileName;
     elements.previewCategory.textContent = category === 'custom' && customFolder ? `custom/${customFolder}` : category;
     elements.previewOriginalSize.textContent = formatFileSize(file.size);
     
@@ -555,6 +558,28 @@ function showLivePreview(file) {
     
     // Show preview
     elements.uploadPreview.style.display = 'block';
+}
+
+// Update name preview in real-time
+function updateNamePreview() {
+    const name = elements.iconName.value;
+    const file = elements.iconFile.files[0];
+    
+    if (name && file) {
+        const finalName = sanitizeFileName(name);
+        const fileExt = getFileExtension(file.name);
+        const finalFileName = finalName + fileExt;
+        
+        const namePreview = document.getElementById('namePreview');
+        if (namePreview) {
+            namePreview.textContent = finalFileName;
+        }
+    }
+    
+    // Also update live preview if it's visible
+    if (file && elements.uploadPreview.style.display !== 'none') {
+        showLivePreview(file);
+    }
 }
 
 // Update preview when inputs change
@@ -635,6 +660,7 @@ async function uploadFile(file, name, category, customFolder) {
         formData.append('category', finalCategory);
         formData.append('description', elements.iconDescription.value || '');
         formData.append('compress', elements.compressIcon.checked);
+        formData.append('customName', finalName); // Send the custom name to server
         
         // Upload to server
         const response = await fetch('/api/upload', {
