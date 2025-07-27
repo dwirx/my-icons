@@ -125,6 +125,23 @@
                             <small>Automatically compresses PNG, JPG, and WebP files to reduce size while maintaining quality</small>
                         </div>
                         
+                        <!-- Live Preview Section -->
+                        <div class="upload-preview" id="uploadPreview" style="display: none;">
+                            <h3>Live Preview</h3>
+                            <div class="preview-content">
+                                <div class="preview-icon-container">
+                                    <div class="preview-icon" id="previewIcon"></div>
+                                    <div class="preview-info">
+                                        <p><strong>Name:</strong> <span id="previewName"></span></p>
+                                        <p><strong>Category:</strong> <span id="previewCategory"></span></p>
+                                        <p><strong>Original Size:</strong> <span id="previewOriginalSize"></span></p>
+                                        <p><strong>Compressed Size:</strong> <span id="previewCompressedSize"></span></p>
+                                        <p><strong>Compression:</strong> <span id="previewCompression"></span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="form-actions">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-upload"></i> Upload Icon

@@ -32,6 +32,13 @@ const elements = {
     iconCategory: document.getElementById('iconCategory'),
     iconDescription: document.getElementById('iconDescription'),
     compressIcon: document.getElementById('compressIcon'),
+    uploadPreview: document.getElementById('uploadPreview'),
+    previewIcon: document.getElementById('previewIcon'),
+    previewName: document.getElementById('previewName'),
+    previewCategory: document.getElementById('previewCategory'),
+    previewOriginalSize: document.getElementById('previewOriginalSize'),
+    previewCompressedSize: document.getElementById('previewCompressedSize'),
+    previewCompression: document.getElementById('previewCompression'),
 
     iconModal: document.getElementById('iconModal'),
     modalIcon: document.getElementById('modalIcon'),
@@ -113,6 +120,9 @@ function setupEventListeners() {
     // Upload form
     elements.uploadForm.addEventListener('submit', handleUpload);
     elements.iconFile.addEventListener('change', handleFileSelect);
+    elements.iconName.addEventListener('input', updatePreviewFromInputs);
+    elements.iconCategory.addEventListener('change', updatePreviewFromInputs);
+    elements.compressIcon.addEventListener('change', updatePreviewFromInputs);
 
     // Source toggle
     const sourceToggle = document.getElementById('sourceToggle');
@@ -305,13 +315,27 @@ function renderGallery() {
     
     const html = filteredIcons.map(icon => {
         const iconUrl = generateIconUrl(icon.category, icon.name);
+        const ext = getFileExtension(icon.name);
+        
+        // Create icon HTML based on format
+        let iconHtml = '';
+        if (ext === '.svg') {
+            iconHtml = `<img src="${iconUrl}" alt="${icon.name}" onerror="this.style.display='none'">`;
+        } else {
+            iconHtml = `<img src="${iconUrl}" alt="${icon.name}" onerror="this.style.display='none'">`;
+        }
+        
         return `
             <div class="icon-card" onclick="showIconDetail('${icon.name}', '${icon.category}')">
-                <img src="${iconUrl}" alt="${icon.name}" onerror="this.style.display='none'">
-                <h3>${icon.name}</h3>
-                <p>${icon.description || ''}</p>
-                <span class="category-badge">${icon.category}</span>
-                <small>${icon.size}${icon.originalSize ? ` (was ${icon.originalSize})` : ''}</small>
+                <div class="icon-preview">
+                    ${iconHtml}
+                </div>
+                <div class="icon-info">
+                    <h3>${icon.name}</h3>
+                    <p>${icon.description || ''}</p>
+                    <span class="category-badge">${icon.category}</span>
+                    <small>${icon.size}${icon.originalSize ? ` (was ${icon.originalSize})` : ''}</small>
+                </div>
             </div>
         `;
     }).join('');
@@ -396,8 +420,8 @@ function handleFileSelect(event) {
     if (file) {
         const isValid = validateFile(file);
         if (isValid) {
-            // Upload directly without preview
-            uploadFileDirectly(file);
+            // Show live preview
+            showLivePreview(file);
         }
     }
 }
@@ -444,6 +468,101 @@ function sanitizeFolderName(name) {
 // Get file extension
 function getFileExtension(filename) {
     return '.' + filename.split('.').pop().toLowerCase();
+}
+
+// Format file size
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Check if format is compressible
+function isCompressibleFormat(ext) {
+    return ['.png', '.jpg', '.jpeg', '.webp'].includes(ext.toLowerCase());
+}
+
+// Estimate compressed size
+function estimateCompressedSize(originalSize, ext) {
+    const extLower = ext.toLowerCase();
+    let compressionRatio = 1;
+    
+    if (extLower === '.png') {
+        compressionRatio = 0.6; // 40% reduction
+    } else if (extLower === '.jpg' || extLower === '.jpeg') {
+        compressionRatio = 0.7; // 30% reduction
+    } else if (extLower === '.webp') {
+        compressionRatio = 0.5; // 50% reduction
+    }
+    
+    return Math.round(originalSize * compressionRatio);
+}
+
+// Get compression badge
+function getCompressionBadge(percent) {
+    if (percent >= 50) {
+        return '<span class="compression-badge excellent">Excellent</span>';
+    } else if (percent >= 20) {
+        return '<span class="compression-badge good">Good</span>';
+    } else {
+        return '<span class="compression-badge minimal">Minimal</span>';
+    }
+}
+
+// Show live preview of selected file
+function showLivePreview(file) {
+    const name = elements.iconName.value || file.name.replace(/\.[^/.]+$/, "");
+    const category = elements.iconCategory.value;
+    const customFolder = document.getElementById('customFolder')?.value;
+    const compress = elements.compressIcon.checked;
+    
+    // Update preview elements
+    elements.previewName.textContent = name;
+    elements.previewCategory.textContent = category === 'custom' && customFolder ? `custom/${customFolder}` : category;
+    elements.previewOriginalSize.textContent = formatFileSize(file.size);
+    
+    // Show preview icon
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const ext = getFileExtension(file.name);
+        if (ext === '.svg') {
+            elements.previewIcon.innerHTML = e.target.result;
+        } else {
+            elements.previewIcon.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+        }
+    };
+    
+    if (getFileExtension(file.name) === '.svg') {
+        reader.readAsText(file);
+    } else {
+        reader.readAsDataURL(file);
+    }
+    
+    // Estimate compressed size
+    if (compress && isCompressibleFormat(getFileExtension(file.name))) {
+        const estimatedCompressedSize = estimateCompressedSize(file.size, getFileExtension(file.name));
+        elements.previewCompressedSize.textContent = formatFileSize(estimatedCompressedSize);
+        
+        const compressionPercent = ((file.size - estimatedCompressedSize) / file.size * 100).toFixed(1);
+        const compressionBadge = getCompressionBadge(compressionPercent);
+        elements.previewCompression.innerHTML = `${compressionPercent}% smaller ${compressionBadge}`;
+    } else {
+        elements.previewCompressedSize.textContent = 'No compression';
+        elements.previewCompression.textContent = 'Not applicable';
+    }
+    
+    // Show preview
+    elements.uploadPreview.style.display = 'block';
+}
+
+// Update preview when inputs change
+function updatePreviewFromInputs() {
+    const file = elements.iconFile.files[0];
+    if (file && elements.uploadPreview.style.display !== 'none') {
+        showLivePreview(file);
+    }
 }
 
 // Upload file directly without preview
@@ -495,6 +614,9 @@ function handleUpload(event) {
         return;
     }
     
+    // Hide preview and upload
+    elements.uploadPreview.style.display = 'none';
+    
     // Upload the file
     uploadFile(file, name, category, customFolder);
 }
@@ -538,6 +660,9 @@ async function uploadFile(file, name, category, customFolder) {
             
             // Reset form
             elements.uploadForm.reset();
+            
+            // Hide preview
+            elements.uploadPreview.style.display = 'none';
             
             // Hide custom folder input
             const customContainer = document.getElementById('customFolderContainer');
