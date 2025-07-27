@@ -100,6 +100,13 @@ class AutoGitManager {
     async push(branch = 'main') {
         try {
             console.log(`🚀 Pushing to ${branch}...`);
+            
+            // Configure git to use token for authentication
+            if (this.githubAPI.token) {
+                await this.execGitCommand(`config credential.helper store`);
+                // Note: Token will be used from remote URL
+            }
+            
             await this.execGitCommand(`push origin ${branch}`);
             console.log('✅ Changes pushed successfully');
             return true;

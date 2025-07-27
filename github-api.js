@@ -77,15 +77,22 @@ class GitHubAPI {
     async checkRepositoryAccess() {
         try {
             const response = await this.makeRequest(`/repos/${this.owner}/${this.repoName}`);
+            console.log(`🔍 Repository info: ${response.full_name}, Fork: ${response.fork}, Permissions:`, response.permissions);
+            
+            // Check if user has write access
+            const hasWriteAccess = response.permissions && response.permissions.push;
+            
             return {
-                hasAccess: true,
+                hasAccess: hasWriteAccess,
                 isFork: response.fork,
+                permissions: response.permissions,
                 parentRepo: response.parent ? {
                     owner: response.parent.owner.login,
                     name: response.parent.name
                 } : null
             };
         } catch (error) {
+            console.log(`🔍 Repository access check error: ${error.message}`);
             if (error.message.includes('404')) {
                 return { hasAccess: false, error: 'Repository not found' };
             } else if (error.message.includes('403')) {
@@ -95,9 +102,35 @@ class GitHubAPI {
         }
     }
 
+    // Check if fork already exists
+    async checkExistingFork() {
+        try {
+            const response = await this.makeRequest(`/repos/${this.username}/${this.repoName}`);
+            if (response.fork && response.source && response.source.full_name === `${this.owner}/${this.repoName}`) {
+                console.log(`✅ Existing fork found: ${response.full_name}`);
+                return {
+                    success: true,
+                    forkName: response.name,
+                    forkFullName: response.full_name,
+                    forkUrl: response.html_url,
+                    exists: true
+                };
+            }
+            return { exists: false };
+        } catch (error) {
+            return { exists: false };
+        }
+    }
+
     // Create a fork of the repository
     async createFork() {
         try {
+            // First check if fork already exists
+            const existingFork = await this.checkExistingFork();
+            if (existingFork.exists) {
+                return existingFork;
+            }
+
             console.log(`🔄 Creating fork of ${this.owner}/${this.repoName}...`);
             const response = await this.makeRequest(`/repos/${this.owner}/${this.repoName}/forks`, 'POST');
             
@@ -221,6 +254,7 @@ class GitHubAPI {
         try {
             // Check current access
             const access = await this.checkRepositoryAccess();
+            console.log('🔍 Repository access check result:', access);
             
             if (access.hasAccess && !access.isFork) {
                 console.log('✅ Already have write access to original repository');
@@ -232,9 +266,11 @@ class GitHubAPI {
                 return { success: true, isFork: true };
             }
 
-            // Create fork
+            // If no write access, create fork
+            console.log('🔄 No write access detected, creating fork...');
             const forkResult = await this.createFork();
             if (!forkResult.success) {
+                console.error('❌ Fork creation failed:', forkResult.error);
                 return forkResult;
             }
 
@@ -258,12 +294,17 @@ class GitHubAPI {
     async updateGitRemote(forkFullName) {
         return new Promise((resolve, reject) => {
             const { exec } = require('child_process');
-            exec(`git remote set-url origin https://github.com/${forkFullName}.git`, (error, stdout, stderr) => {
+            // Use token in URL for authentication
+            const remoteUrl = this.token 
+                ? `https://${this.token}@github.com/${forkFullName}.git`
+                : `https://github.com/${forkFullName}.git`;
+            
+            exec(`git remote set-url origin "${remoteUrl}"`, (error, stdout, stderr) => {
                 if (error) {
                     console.error('❌ Failed to update git remote:', error);
                     reject(error);
                 } else {
-                    console.log('✅ Git remote updated to fork');
+                    console.log('✅ Git remote updated to fork with authentication');
                     resolve();
                 }
             });
