@@ -23,6 +23,13 @@ class AutoGitManager {
             await this.execGitCommand(`config user.name "${this.gitAuthorName}"`);
             await this.execGitCommand(`config user.email "${this.gitAuthorEmail}"`);
             
+            // Set up remote with token if available
+            if (this.githubAPI.token) {
+                const remoteUrl = `https://${this.githubAPI.token}@github.com/${this.githubAPI.owner}/${this.githubAPI.repoName}.git`;
+                await this.execGitCommand(`remote set-url origin "${remoteUrl}"`);
+                console.log('🔑 Git remote configured with token authentication');
+            }
+            
             // Check if we need to setup fork
             if (this.githubAPI.token) {
                 const forkResult = await this.githubAPI.autoForkAndSetup();
@@ -100,13 +107,6 @@ class AutoGitManager {
     async push(branch = 'main') {
         try {
             console.log(`🚀 Pushing to ${branch}...`);
-            
-            // Configure git to use token for authentication
-            if (this.githubAPI.token) {
-                await this.execGitCommand(`config credential.helper store`);
-                // Note: Token will be used from remote URL
-            }
-            
             await this.execGitCommand(`push origin ${branch}`);
             console.log('✅ Changes pushed successfully');
             return true;
