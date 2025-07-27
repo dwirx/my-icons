@@ -1,0 +1,42 @@
+{
+  "name": "my-icons",
+  "version": "1.0.0",
+  "description": "Icon hosting via GitHub + jsDelivr CDN",
+  "main": "upload-icons.js",
+  "scripts": {
+    "init": "node upload-icons.js init",
+    "list": "node upload-icons.js list",
+    "url": "node upload-icons.js url",
+    "validate": "node upload-icons.js validate",
+    "examples": "node upload-icons.js examples",
+    "test": "node upload-icons.js list"
+  },
+  "keywords": [
+    "icons",
+    "cdn",
+    "jsdelivr",
+    "github",
+    "hosting",
+    "svg",
+    "png"
+  ],
+  "author": "dwirx",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dwirx/my-icons.git"
+  },
+  "homepage": "https://github.com/dwirx/my-icons#readme",
+  "bugs": {
+    "url": "https://github.com/dwirx/my-icons/issues"
+  },
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "files": [
+    "upload-icons.js",
+    "README.md",
+    "docs/",
+    "icons/"
+  ]
+} 
