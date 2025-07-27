@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
+const IconUploadHandler = require('./upload-handler');
 
 const PORT = process.env.PORT || 3001;
 
@@ -19,10 +20,19 @@ const mimeTypes = {
     '.webp': 'image/webp'
 };
 
+// Initialize upload handler
+const uploadHandler = new IconUploadHandler();
+
 // Create HTTP server
 const server = http.createServer((req, res) => {
-    const parsedUrl = url.parse(req.url);
+    const parsedUrl = url.parse(req.url, true);
     let pathname = parsedUrl.pathname;
+    
+    // Handle API endpoints
+    if (pathname.startsWith('/api/')) {
+        handleApiRequest(req, res, parsedUrl);
+        return;
+    }
     
     // Default to index.html
     if (pathname === '/') {
@@ -87,6 +97,136 @@ const server = http.createServer((req, res) => {
         }
     });
 });
+
+// Handle API requests
+function handleApiRequest(req, res, parsedUrl) {
+    const pathname = parsedUrl.pathname;
+    
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    if (req.method === 'OPTIONS') {
+        res.writeHead(200);
+        res.end();
+        return;
+    }
+    
+    // Handle different API endpoints
+    if (pathname === '/api/icons' && req.method === 'GET') {
+        // List all icons
+        uploadHandler.listIcons()
+            .then(icons => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, icons }));
+            })
+            .catch(error => {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            });
+    }
+    else if (pathname === '/api/upload' && req.method === 'POST') {
+        // Handle file upload
+        handleFileUpload(req, res);
+    }
+    else if (pathname === '/api/delete' && req.method === 'POST') {
+        // Handle file deletion
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk.toString();
+        });
+        req.on('end', () => {
+            try {
+                const { fileName, category } = JSON.parse(body);
+                uploadHandler.deleteFile(fileName, category)
+                    .then(result => {
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify(result));
+                    })
+                    .catch(error => {
+                        res.writeHead(500, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: false, error: error.message }));
+                    });
+            } catch (error) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+            }
+        });
+    }
+    else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'API endpoint not found' }));
+    }
+}
+
+// Handle file upload
+function handleFileUpload(req, res) {
+    // For now, we'll use a simple multipart parser
+    // In production, you should use a proper library like multer
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+    req.on('end', () => {
+        try {
+            // Parse multipart form data (simplified)
+            const boundary = req.headers['content-type'].split('boundary=')[1];
+            const parts = body.split('--' + boundary);
+            
+            let fileData = null;
+            let category = '';
+            let customFolder = '';
+            let description = '';
+            
+            for (const part of parts) {
+                if (part.includes('Content-Disposition: form-data')) {
+                    if (part.includes('name="file"')) {
+                        // Extract file data (simplified)
+                        const fileMatch = part.match(/filename="([^"]+)"/);
+                        if (fileMatch) {
+                            fileData = {
+                                originalname: fileMatch[1],
+                                size: part.length,
+                                path: '/tmp/' + fileMatch[1] // Simplified
+                            };
+                        }
+                    } else if (part.includes('name="category"')) {
+                        const match = part.match(/name="category"\r?\n\r?\n([^\r\n]+)/);
+                        if (match) category = match[1];
+                    } else if (part.includes('name="customFolder"')) {
+                        const match = part.match(/name="customFolder"\r?\n\r?\n([^\r\n]+)/);
+                        if (match) customFolder = match[1];
+                    } else if (part.includes('name="description"')) {
+                        const match = part.match(/name="description"\r?\n\r?\n([^\r\n]+)/);
+                        if (match) description = match[1];
+                    }
+                }
+            }
+            
+            if (!fileData || !category) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: 'Missing required fields' }));
+                return;
+            }
+            
+            // Save file
+            uploadHandler.saveFile(fileData, category, customFolder || null)
+                .then(result => {
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify(result));
+                })
+                .catch(error => {
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: false, error: error.message }));
+                });
+                
+        } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: error.message }));
+        }
+    });
+}
 
 // Start server
 server.listen(PORT, () => {

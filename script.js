@@ -51,6 +51,40 @@ function initializeApp() {
     setupEventListeners();
     loadIcons();
     initializeClipboard();
+    setupCustomFolderInput();
+}
+
+// Setup custom folder input
+function setupCustomFolderInput() {
+    const categorySelect = document.getElementById('iconCategory');
+    const customFolderContainer = document.createElement('div');
+    customFolderContainer.className = 'form-group';
+    customFolderContainer.id = 'customFolderContainer';
+    customFolderContainer.style.display = 'none';
+    
+    customFolderContainer.innerHTML = `
+        <label for="customFolder">Custom Folder Name:</label>
+        <input type="text" id="customFolder" placeholder="e.g., tech, gaming, business" 
+               pattern="[a-z0-9-]+" title="Only lowercase letters, numbers, and hyphens allowed">
+        <small>Use lowercase letters, numbers, and hyphens only</small>
+    `;
+    
+    categorySelect.parentNode.insertBefore(customFolderContainer, categorySelect.nextSibling);
+    
+    // Show/hide custom folder input based on selection
+    categorySelect.addEventListener('change', function() {
+        const customContainer = document.getElementById('customFolderContainer');
+        const customInput = document.getElementById('customFolder');
+        
+        if (this.value === 'custom') {
+            customContainer.style.display = 'block';
+            customInput.required = true;
+        } else {
+            customContainer.style.display = 'none';
+            customInput.required = false;
+            customInput.value = '';
+        }
+    });
 }
 
 // Setup event listeners
@@ -73,6 +107,12 @@ function setupEventListeners() {
     elements.iconFile.addEventListener('change', handleFileSelect);
     elements.iconName.addEventListener('input', updatePreview);
     elements.iconCategory.addEventListener('change', updatePreview);
+    
+    // Custom folder input
+    const customFolderInput = document.getElementById('customFolder');
+    if (customFolderInput) {
+        customFolderInput.addEventListener('input', updatePreview);
+    }
 
     // Modal
     const closeBtn = document.querySelector('.close');
@@ -111,12 +151,15 @@ async function loadIcons() {
     showLoading(true);
     
     try {
-        icons = [];
+        // Load icons from API
+        const response = await fetch('/api/icons');
+        const data = await response.json();
         
-        // Load icons from each category
-        for (const category of CONFIG.categories) {
-            const categoryIcons = await loadCategoryIcons(category);
-            icons.push(...categoryIcons);
+        if (data.success) {
+            icons = data.icons;
+        } else {
+            // Fallback to mock data if API fails
+            icons = await loadMockIcons();
         }
         
         showLoading(false);
@@ -131,63 +174,64 @@ async function loadIcons() {
         
     } catch (error) {
         console.error('Error loading icons:', error);
+        // Fallback to mock data
+        icons = await loadMockIcons();
         showLoading(false);
-        showNotification('Error loading icons', 'error');
+        
+        if (currentTab === 'gallery') {
+            renderGallery();
+        } else if (currentTab === 'manage') {
+            renderManage();
+        }
+        
+        showNotification('Loaded icons (fallback mode)', 'info');
     }
 }
 
-// Load icons from a specific category
-async function loadCategoryIcons(category) {
-    const categoryIcons = [];
+// Load mock icons as fallback
+async function loadMockIcons() {
+    const mockIcons = [];
     
-    try {
-        // This is a simplified approach - in a real implementation,
-        // you would need to fetch the actual file list from GitHub API
-        // For now, we'll use a mock approach
-        
-        // Check if the category folder exists and has icons
-        const testUrl = `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/${category}/.gitkeep`;
-        
-        // For demo purposes, we'll create some mock icons
-        if (category === 'social') {
-            categoryIcons.push({
-                name: 'github.svg',
-                category: 'social',
-                url: `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/social/github.svg`,
-                description: 'GitHub logo',
-                size: '2.1 KB',
-                lastModified: new Date().toISOString()
-            });
+    // Add mock icons for demonstration
+    mockIcons.push(
+        {
+            name: 'github.svg',
+            category: 'social',
+            url: `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/social/github.svg`,
+            description: 'GitHub logo',
+            size: '2.1 KB',
+            lastModified: new Date().toISOString()
+        },
+        {
+            name: 'arrow-right.svg',
+            category: 'ui',
+            url: `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/ui/arrow-right.svg`,
+            description: 'Right arrow icon',
+            size: '1.8 KB',
+            lastModified: new Date().toISOString()
+        },
+        {
+            name: 'menu.svg',
+            category: 'ui',
+            url: `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/ui/menu.svg`,
+            description: 'Hamburger menu icon',
+            size: '1.5 KB',
+            lastModified: new Date().toISOString()
+        },
+        {
+            name: 'apple.svg',
+            category: 'brands',
+            url: `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/brands/apple.svg`,
+            description: 'Apple logo',
+            size: '3.2 KB',
+            lastModified: new Date().toISOString()
         }
-        
-        // Add more mock icons for demonstration
-        if (category === 'ui') {
-            categoryIcons.push(
-                {
-                    name: 'arrow-right.svg',
-                    category: 'ui',
-                    url: `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/ui/arrow-right.svg`,
-                    description: 'Right arrow icon',
-                    size: '1.8 KB',
-                    lastModified: new Date().toISOString()
-                },
-                {
-                    name: 'menu.svg',
-                    category: 'ui',
-                    url: `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/ui/menu.svg`,
-                    description: 'Hamburger menu icon',
-                    size: '1.5 KB',
-                    lastModified: new Date().toISOString()
-                }
-            );
-        }
-        
-    } catch (error) {
-        console.error(`Error loading ${category} icons:`, error);
-    }
+    );
     
-    return categoryIcons;
+    return mockIcons;
 }
+
+
 
 // Render gallery
 function renderGallery() {
@@ -252,7 +296,11 @@ function getFilteredIcons() {
     // Category filter
     const categoryFilter = elements.categoryFilter.value || elements.manageCategoryFilter.value;
     if (categoryFilter) {
-        filtered = filtered.filter(icon => icon.category === categoryFilter);
+        if (categoryFilter === 'custom') {
+            filtered = filtered.filter(icon => icon.category.startsWith('custom/'));
+        } else {
+            filtered = filtered.filter(icon => icon.category === categoryFilter);
+        }
     }
     
     // Search filter
@@ -310,12 +358,15 @@ function updatePreview() {
     const file = elements.iconFile.files[0];
     const name = elements.iconName.value;
     const category = elements.iconCategory.value;
+    const customFolder = document.getElementById('customFolder')?.value;
     
     if (file && name && category) {
-        const url = `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/${category}/${name}${getFileExtension(file.name)}`;
+        const finalName = sanitizeFileName(name);
+        const finalCategory = category === 'custom' && customFolder ? `custom/${sanitizeFolderName(customFolder)}` : category;
+        const url = `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/${finalCategory}/${finalName}${getFileExtension(file.name)}`;
         
-        elements.previewName.textContent = name + getFileExtension(file.name);
-        elements.previewCategory.textContent = category;
+        elements.previewName.textContent = finalName + getFileExtension(file.name);
+        elements.previewCategory.textContent = finalCategory;
         elements.previewSize.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
         elements.previewUrl.textContent = url;
         
@@ -337,6 +388,24 @@ function updatePreview() {
     }
 }
 
+// Sanitize file name
+function sanitizeFileName(name) {
+    return name
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-')  // Replace invalid chars with hyphens
+        .replace(/-+/g, '-')          // Replace multiple hyphens with single
+        .replace(/^-|-$/g, '');       // Remove leading/trailing hyphens
+}
+
+// Sanitize folder name
+function sanitizeFolderName(name) {
+    return name
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-')  // Replace invalid chars with hyphens
+        .replace(/-+/g, '-')          // Replace multiple hyphens with single
+        .replace(/^-|-$/g, '');       // Remove leading/trailing hyphens
+}
+
 // Get file extension
 function getFileExtension(filename) {
     return '.' + filename.split('.').pop().toLowerCase();
@@ -350,9 +419,15 @@ function handleUpload(event) {
     const file = elements.iconFile.files[0];
     const name = elements.iconName.value;
     const category = elements.iconCategory.value;
+    const customFolder = document.getElementById('customFolder')?.value;
     
     if (!file || !name || !category) {
         showNotification('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    if (category === 'custom' && !customFolder) {
+        showNotification('Please enter a custom folder name', 'error');
         return;
     }
     
@@ -360,41 +435,71 @@ function handleUpload(event) {
         return;
     }
     
-    // In a real implementation, you would upload to GitHub here
-    // For now, we'll simulate the upload
-    simulateUpload(file, name, category);
+    // Upload the file
+    uploadFile(file, name, category, customFolder);
 }
 
-// Simulate upload (replace with actual GitHub API integration)
-function simulateUpload(file, name, category) {
+// Upload file to icons folder
+async function uploadFile(file, name, category, customFolder) {
     showNotification('Uploading icon...', 'info');
     
-    setTimeout(() => {
-        // Add to local icons array
-        const newIcon = {
-            name: name + getFileExtension(file.name),
-            category: category,
-            url: `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/${category}/${name}${getFileExtension(file.name)}`,
-            description: elements.iconDescription.value || '',
-            size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
-            lastModified: new Date().toISOString()
-        };
+    try {
+        const finalName = sanitizeFileName(name);
+        const finalCategory = category === 'custom' && customFolder ? `custom/${sanitizeFolderName(customFolder)}` : category;
         
-        icons.unshift(newIcon);
+        // Create FormData for upload
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('category', finalCategory);
+        formData.append('description', elements.iconDescription.value || '');
         
-        // Reset form
-        elements.uploadForm.reset();
-        elements.uploadPreview.style.display = 'none';
+        // Upload to server
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        });
         
-        // Update views
-        if (currentTab === 'gallery') {
-            renderGallery();
-        } else if (currentTab === 'manage') {
-            renderManage();
+        const result = await response.json();
+        
+        if (result.success) {
+            // Add to local icons array
+            const newIcon = {
+                name: result.fileName,
+                category: result.category,
+                url: result.url,
+                description: elements.iconDescription.value || '',
+                size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+                lastModified: new Date().toISOString()
+            };
+            
+            icons.unshift(newIcon);
+            
+            // Reset form
+            elements.uploadForm.reset();
+            elements.uploadPreview.style.display = 'none';
+            
+            // Hide custom folder input
+            const customContainer = document.getElementById('customFolderContainer');
+            if (customContainer) {
+                customContainer.style.display = 'none';
+            }
+            
+            // Update views
+            if (currentTab === 'gallery') {
+                renderGallery();
+            } else if (currentTab === 'manage') {
+                renderManage();
+            }
+            
+            showNotification('Icon uploaded successfully!', 'success');
+        } else {
+            throw new Error(result.error || 'Upload failed');
         }
         
-        showNotification('Icon uploaded successfully!', 'success');
-    }, 2000);
+    } catch (error) {
+        console.error('Upload error:', error);
+        showNotification('Error uploading icon: ' + error.message, 'error');
+    }
 }
 
 // Show icon detail modal
@@ -439,19 +544,37 @@ function copyIconUrl(url) {
 }
 
 // Delete icon
-function deleteIcon(name, category) {
+async function deleteIcon(name, category) {
     if (confirm(`Are you sure you want to delete ${name}?`)) {
-        // In a real implementation, you would delete from GitHub here
-        // For now, we'll simulate the deletion
-        icons = icons.filter(icon => !(icon.name === name && icon.category === category));
-        
-        if (currentTab === 'gallery') {
-            renderGallery();
-        } else if (currentTab === 'manage') {
-            renderManage();
+        try {
+            const response = await fetch('/api/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ fileName: name, category: category })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Remove from local icons array
+                icons = icons.filter(icon => !(icon.name === name && icon.category === category));
+                
+                if (currentTab === 'gallery') {
+                    renderGallery();
+                } else if (currentTab === 'manage') {
+                    renderManage();
+                }
+                
+                showNotification('Icon deleted successfully!', 'success');
+            } else {
+                throw new Error(result.error || 'Delete failed');
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            showNotification('Error deleting icon: ' + error.message, 'error');
         }
-        
-        showNotification('Icon deleted successfully!', 'success');
     }
 }
 
