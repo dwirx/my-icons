@@ -12,7 +12,9 @@
     "test": "node upload-icons.js list",
     "start": "node server.js",
     "dev": "node server.js",
-    "website": "node server.js"
+    "website": "node server.js",
+    "deploy": "vercel --prod",
+    "deploy:dev": "vercel"
   },
   "keywords": [
     "icons",

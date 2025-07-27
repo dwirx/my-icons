@@ -1,0 +1,46 @@
+name: Auto Commit from Vercel Upload
+
+on:
+  repository_dispatch:
+    types: [vercel-upload]
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Commit message'
+        required: true
+        default: '🤖 Auto-update: File uploaded via Vercel'
+
+jobs:
+  commit-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "My Icons Bot"
+          git config user.email "bot@myicons.com"
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.check-changes.outputs.has-changes == 'true'
+        run: |
+          git add .
+          git commit -m "${{ github.event.client_payload.message || '🤖 Auto-update: File uploaded via Vercel' }}"
+          git push origin main
+
+      - name: No changes to commit
+        if: steps.check-changes.outputs.has-changes == 'false'
+        run: |
+          echo "No changes to commit" 
