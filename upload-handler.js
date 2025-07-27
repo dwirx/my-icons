@@ -236,7 +236,15 @@ class IconUploadHandler {
     // Delete file
     async deleteFile(fileName, category) {
         try {
-            const filePath = path.join(this.iconsDir, category, fileName);
+            let filePath;
+            
+            // Handle custom folder structure
+            if (category.startsWith('custom/')) {
+                const customSubfolder = category.split('/')[1];
+                filePath = path.join(this.iconsDir, 'custom', customSubfolder, fileName);
+            } else {
+                filePath = path.join(this.iconsDir, category, fileName);
+            }
             
             if (!fs.existsSync(filePath)) {
                 throw new Error(`File ${fileName} not found in ${category}`);
@@ -279,20 +287,50 @@ class IconUploadHandler {
                 const stat = fs.statSync(categoryPath);
                 
                 if (stat.isDirectory()) {
-                    const files = fs.readdirSync(categoryPath);
-                    
-                    for (const file of files) {
-                        if (!file.startsWith('.') && this.supportedFormats.includes(path.extname(file).toLowerCase())) {
-                            const filePath = path.join(categoryPath, file);
-                            const fileStat = fs.statSync(filePath);
+                    if (category === 'custom') {
+                        // Handle custom folder structure
+                        const subItems = fs.readdirSync(categoryPath);
+                        
+                        for (const subItem of subItems) {
+                            const subItemPath = path.join(categoryPath, subItem);
+                            const subItemStat = fs.statSync(subItemPath);
                             
-                            icons.push({
-                                name: file,
-                                category: category,
-                                size: this.formatFileSize(fileStat.size),
-                                lastModified: fileStat.mtime.toISOString(),
-                                url: `https://cdn.jsdelivr.net/gh/dwirx/my-icons@main/icons/${category}/${file}`
-                            });
+                            if (subItemStat.isDirectory()) {
+                                const files = fs.readdirSync(subItemPath);
+                                
+                                for (const file of files) {
+                                    if (!file.startsWith('.') && this.supportedFormats.includes(path.extname(file).toLowerCase())) {
+                                        const filePath = path.join(subItemPath, file);
+                                        const fileStat = fs.statSync(filePath);
+                                        
+                                        icons.push({
+                                            name: file,
+                                            category: `custom/${subItem}`,
+                                            size: this.formatFileSize(fileStat.size),
+                                            lastModified: fileStat.mtime.toISOString(),
+                                            url: `https://cdn.jsdelivr.net/gh/dwirx/my-icons@main/icons/custom/${subItem}/${file}`
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Handle regular categories
+                        const files = fs.readdirSync(categoryPath);
+                        
+                        for (const file of files) {
+                            if (!file.startsWith('.') && this.supportedFormats.includes(path.extname(file).toLowerCase())) {
+                                const filePath = path.join(categoryPath, file);
+                                const fileStat = fs.statSync(filePath);
+                                
+                                icons.push({
+                                    name: file,
+                                    category: category,
+                                    size: this.formatFileSize(fileStat.size),
+                                    lastModified: fileStat.mtime.toISOString(),
+                                    url: `https://cdn.jsdelivr.net/gh/dwirx/my-icons@main/icons/${category}/${file}`
+                                });
+                            }
                         }
                     }
                 }
