@@ -44,7 +44,10 @@ const elements = {
     modalIcon: document.getElementById('modalIcon'),
     modalName: document.getElementById('modalName'),
     modalCategory: document.getElementById('modalCategory'),
+    modalSize: document.getElementById('modalSize'),
     modalUrl: document.getElementById('modalUrl'),
+    modalCdnUrl: document.getElementById('modalCdnUrl'),
+    modalLocalUrl: document.getElementById('modalLocalUrl'),
     notification: document.getElementById('notification')
 };
 
@@ -727,26 +730,12 @@ function showIconDetail(name, category) {
     
     elements.modalName.textContent = icon.name;
     elements.modalCategory.textContent = icon.category;
+    elements.modalSize.textContent = icon.size;
     
-    // Show current URL and both options
-    elements.modalUrl.innerHTML = `
-        <div class="url-options">
-            <div class="current-url">
-                <strong>Current (${useLocal ? 'Local' : 'CDN'}):</strong><br>
-                <code>${iconUrl}</code>
-            </div>
-            <div class="url-alternatives">
-                <div class="url-option">
-                    <strong>CDN URL:</strong><br>
-                    <code>${cdnUrl}</code>
-                </div>
-                <div class="url-option">
-                    <strong>Local URL:</strong><br>
-                    <code>${localUrl}</code>
-                </div>
-            </div>
-        </div>
-    `;
+    // Show current URL
+    elements.modalUrl.textContent = iconUrl;
+    elements.modalCdnUrl.textContent = cdnUrl;
+    elements.modalLocalUrl.textContent = localUrl;
     
     // Load icon in modal
     const ext = getFileExtension(icon.name);
@@ -760,8 +749,11 @@ function showIconDetail(name, category) {
                 elements.modalIcon.innerHTML = '<i class="fas fa-image" style="font-size: 3rem; color: #6c757d;"></i>';
             });
     } else {
-        elements.modalIcon.innerHTML = `<img src="${iconUrl}" alt="${icon.name}">`;
+        elements.modalIcon.innerHTML = `<img src="${iconUrl}" alt="${icon.name}" id="modalImage">`;
     }
+    
+    // Setup action buttons
+    setupModalActions(iconUrl, icon.name);
     
     elements.iconModal.style.display = 'block';
 }
@@ -772,6 +764,62 @@ function closeModal() {
 }
 
 // Copy icon URL
+// Setup modal action buttons
+function setupModalActions(iconUrl, iconName) {
+    // Copy image button
+    const copyImageBtn = document.getElementById('copyImageBtn');
+    copyImageBtn.onclick = () => copyImageToClipboard(iconUrl, iconName);
+    
+    // Download button
+    const downloadBtn = document.getElementById('downloadBtn');
+    downloadBtn.onclick = () => downloadImage(iconUrl, iconName);
+}
+
+// Copy image to clipboard
+async function copyImageToClipboard(iconUrl, iconName) {
+    try {
+        // Fetch the image
+        const response = await fetch(iconUrl);
+        const blob = await response.blob();
+        
+        // Create clipboard item
+        const clipboardItem = new ClipboardItem({
+            [blob.type]: blob
+        });
+        
+        // Copy to clipboard
+        await navigator.clipboard.write([clipboardItem]);
+        showNotification('Image copied to clipboard!', 'success');
+    } catch (error) {
+        console.error('Error copying image:', error);
+        showNotification('Failed to copy image. Try downloading instead.', 'error');
+    }
+}
+
+// Download image
+async function downloadImage(iconUrl, iconName) {
+    try {
+        // Fetch the image
+        const response = await fetch(iconUrl);
+        const blob = await response.blob();
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = iconName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        showNotification('Image downloaded successfully!', 'success');
+    } catch (error) {
+        console.error('Error downloading image:', error);
+        showNotification('Failed to download image', 'error');
+    }
+}
+
 function copyIconUrl(url) {
     navigator.clipboard.writeText(url).then(() => {
         showNotification('URL copied to clipboard!', 'success');

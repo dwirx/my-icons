@@ -4,16 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Icons - Icon Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <!-- Header -->
-        <header class="header">
+        <header class="header bg-gradient-to-r from-blue-600 to-purple-600">
             <div class="header-content">
-                <h1><i class="fas fa-icons"></i> My Icons</h1>
-                <p>Icon Management System via GitHub + jsDelivr CDN</p>
+                <h1 class="text-white"><i class="fas fa-icons"></i> My Icons</h1>
+                <p class="text-blue-100">Icon Management System via GitHub + jsDelivr CDN</p>
             </div>
         </header>
 
@@ -143,10 +144,10 @@
                         </div>
                         
                         <div class="form-actions">
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-primary bg-blue-600 hover:bg-blue-700 text-white">
                                 <i class="fas fa-upload"></i> Upload Icon
                             </button>
-                            <button type="reset" class="btn btn-secondary">
+                            <button type="reset" class="btn btn-secondary bg-gray-500 hover:bg-gray-600 text-white">
                                 <i class="fas fa-undo"></i> Reset
                             </button>
                         </div>
@@ -261,11 +262,36 @@ node upload-icons.js validate path/to/icon.svg</code></pre>
                     <div class="icon-info">
                         <h3 id="modalName"></h3>
                         <p><strong>Category:</strong> <span id="modalCategory"></span></p>
-                        <p><strong>CDN URL:</strong></p>
-                        <code id="modalUrl"></code>
-                        <button class="btn btn-primary copy-btn" data-clipboard-target="#modalUrl">
-                            <i class="fas fa-copy"></i> Copy URL
-                        </button>
+                        <p><strong>Size:</strong> <span id="modalSize"></span></p>
+                        
+                        <div class="url-options">
+                            <div class="current-url">
+                                <strong>Current (${useLocal ? 'Local' : 'CDN'}):</strong><br>
+                                <code id="modalUrl"></code>
+                            </div>
+                            <div class="url-alternatives">
+                                <div class="url-option">
+                                    <strong>CDN URL:</strong><br>
+                                    <code id="modalCdnUrl"></code>
+                                </div>
+                                <div class="url-option">
+                                    <strong>Local URL:</strong><br>
+                                    <code id="modalLocalUrl"></code>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button class="btn btn-primary copy-btn bg-blue-600 hover:bg-blue-700 text-white" data-clipboard-target="#modalUrl">
+                                <i class="fas fa-copy"></i> Copy URL
+                            </button>
+                            <button class="btn btn-secondary bg-gray-500 hover:bg-gray-600 text-white" id="copyImageBtn">
+                                <i class="fas fa-image"></i> Copy Image
+                            </button>
+                            <button class="btn btn-success bg-green-600 hover:bg-green-700 text-white" id="downloadBtn">
+                                <i class="fas fa-download"></i> Download
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
