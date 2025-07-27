@@ -30,12 +30,7 @@ const elements = {
     iconFile: document.getElementById('iconFile'),
     iconName: document.getElementById('iconName'),
     iconCategory: document.getElementById('iconCategory'),
-    uploadPreview: document.getElementById('uploadPreview'),
-    previewIcon: document.getElementById('previewIcon'),
-    previewName: document.getElementById('previewName'),
-    previewCategory: document.getElementById('previewCategory'),
-    previewSize: document.getElementById('previewSize'),
-    previewUrl: document.getElementById('previewUrl'),
+
     iconModal: document.getElementById('iconModal'),
     modalIcon: document.getElementById('modalIcon'),
     modalName: document.getElementById('modalName'),
@@ -87,6 +82,15 @@ function setupCustomFolderInput() {
             customInput.value = '';
         }
     });
+    
+    // Add event listener for custom folder input
+    const customInput = document.getElementById('customFolder');
+    if (customInput) {
+        customInput.addEventListener('input', function() {
+            // Auto-sanitize the input
+            this.value = this.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        });
+    }
 }
 
 // Setup event listeners
@@ -107,14 +111,6 @@ function setupEventListeners() {
     // Upload form
     elements.uploadForm.addEventListener('submit', handleUpload);
     elements.iconFile.addEventListener('change', handleFileSelect);
-    elements.iconName.addEventListener('input', updatePreview);
-    elements.iconCategory.addEventListener('change', updatePreview);
-    
-    // Custom folder input
-    const customFolderInput = document.getElementById('customFolder');
-    if (customFolderInput) {
-        customFolderInput.addEventListener('input', updatePreview);
-    }
 
     // Source toggle
     const sourceToggle = document.getElementById('sourceToggle');
@@ -395,8 +391,11 @@ function filterManageIcons() {
 function handleFileSelect(event) {
     const file = event.target.files[0];
     if (file) {
-        validateFile(file);
-        updatePreview();
+        const isValid = validateFile(file);
+        if (isValid) {
+            // Upload directly without preview
+            uploadFileDirectly(file);
+        }
     }
 }
 
@@ -419,48 +418,7 @@ function validateFile(file) {
     return true;
 }
 
-// Update preview
-function updatePreview() {
-    const file = elements.iconFile.files[0];
-    const name = elements.iconName.value;
-    const category = elements.iconCategory.value;
-    const customFolder = document.getElementById('customFolder')?.value;
-    
-    if (file && name && category) {
-        const finalName = sanitizeFileName(name);
-        const finalCategory = category === 'custom' && customFolder ? `custom/${sanitizeFolderName(customFolder)}` : category;
-        const fileName = finalName + getFileExtension(file.name);
-        
-        const cdnUrl = `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/${finalCategory}/${fileName}`;
-        const localUrl = `${CONFIG.localBaseUrl}/${finalCategory}/${fileName}`;
-        
-        elements.previewName.textContent = fileName;
-        elements.previewCategory.textContent = finalCategory;
-        elements.previewSize.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
-        elements.previewUrl.innerHTML = `
-            <div class="url-preview">
-                <div><strong>CDN URL:</strong> <code>${cdnUrl}</code></div>
-                <div><strong>Local URL:</strong> <code>${localUrl}</code></div>
-            </div>
-        `;
-        
-        // Show preview icon
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const ext = getFileExtension(file.name);
-            if (ext === '.svg') {
-                elements.previewIcon.innerHTML = e.target.result;
-            } else {
-                elements.previewIcon.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
-            }
-        };
-        reader.readAsText(file);
-        
-        elements.uploadPreview.style.display = 'block';
-    } else {
-        elements.uploadPreview.style.display = 'none';
-    }
-}
+
 
 // Sanitize file name
 function sanitizeFileName(name) {
@@ -483,6 +441,31 @@ function sanitizeFolderName(name) {
 // Get file extension
 function getFileExtension(filename) {
     return '.' + filename.split('.').pop().toLowerCase();
+}
+
+// Upload file directly without preview
+async function uploadFileDirectly(file) {
+    // Generate a name from the file name if not provided
+    const fileName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+    const name = elements.iconName.value || fileName;
+    const category = elements.iconCategory.value;
+    const customFolder = document.getElementById('customFolder')?.value;
+    
+    if (!category) {
+        showNotification('Please select a category', 'error');
+        return;
+    }
+    
+    if (category === 'custom' && !customFolder) {
+        showNotification('Please enter a custom folder name', 'error');
+        return;
+    }
+    
+    // Upload the file
+    await uploadFile(file, name, category, customFolder);
+    
+    // Reset file input
+    elements.iconFile.value = '';
 }
 
 // Handle upload
@@ -550,7 +533,6 @@ async function uploadFile(file, name, category, customFolder) {
             
             // Reset form
             elements.uploadForm.reset();
-            elements.uploadPreview.style.display = 'none';
             
             // Hide custom folder input
             const customContainer = document.getElementById('customFolderContainer');
