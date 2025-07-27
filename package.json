@@ -9,7 +9,10 @@
     "url": "node upload-icons.js url",
     "validate": "node upload-icons.js validate",
     "examples": "node upload-icons.js examples",
-    "test": "node upload-icons.js list"
+    "test": "node upload-icons.js list",
+    "start": "node server.js",
+    "dev": "node server.js",
+    "website": "node server.js"
   },
   "keywords": [
     "icons",

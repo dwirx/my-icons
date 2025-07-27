@@ -20,7 +20,7 @@ const CONFIG = {
     baseUrl: 'https://cdn.jsdelivr.net/gh',
     categories: ['social', 'ui', 'brands', 'flags', 'custom'],
     supportedFormats: ['.svg', '.png', '.ico', '.webp'],
-    maxFileSize: 100 * 1024 // 100KB
+    maxFileSize: 50 * 1024 * 1024 // 50MB
 };
 
 /**
@@ -42,7 +42,7 @@ function validateIcon(filePath) {
     }
     
     if (stats.size > CONFIG.maxFileSize) {
-        throw new Error(`File too large: ${(stats.size / 1024).toFixed(2)}KB. Max: ${CONFIG.maxFileSize / 1024}KB`);
+        throw new Error(`File too large: ${(stats.size / (1024 * 1024)).toFixed(2)}MB. Max: ${CONFIG.maxFileSize / (1024 * 1024)}MB`);
     }
     
     return true;
@@ -199,7 +199,7 @@ Configuration:
   Repository: ${CONFIG.repository}
   Branch: ${CONFIG.branch}
   Supported formats: ${CONFIG.supportedFormats.join(', ')}
-  Max file size: ${CONFIG.maxFileSize / 1024}KB
+  Max file size: ${CONFIG.maxFileSize / (1024 * 1024)}MB
             `);
     }
 }

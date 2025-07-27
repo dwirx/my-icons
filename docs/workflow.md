@@ -107,9 +107,9 @@ icons/
 ### File Size Guidelines
 
 - **SVG**: < 10KB (preferred)
-- **PNG**: < 100KB
-- **WebP**: < 50KB
-- **ICO**: < 20KB
+- **PNG**: < 50MB
+- **WebP**: < 50MB
+- **ICO**: < 50MB
 
 ## 🔧 Advanced Features
 

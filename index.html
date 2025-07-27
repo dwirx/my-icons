@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Icons - Icon Management System</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-icons"></i> My Icons</h1>
+                <p>Icon Management System via GitHub + jsDelivr CDN</p>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <div class="nav-content">
+                <button class="nav-btn active" data-tab="gallery">
+                    <i class="fas fa-images"></i> Gallery
+                </button>
+                <button class="nav-btn" data-tab="upload">
+                    <i class="fas fa-upload"></i> Upload
+                </button>
+                <button class="nav-btn" data-tab="manage">
+                    <i class="fas fa-cog"></i> Manage
+                </button>
+                <button class="nav-btn" data-tab="info">
+                    <i class="fas fa-info-circle"></i> Info
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Gallery Tab -->
+            <div class="tab-content active" id="gallery">
+                <div class="gallery-header">
+                    <h2>Icon Gallery</h2>
+                    <div class="gallery-controls">
+                        <select id="categoryFilter" class="filter-select">
+                            <option value="">All Categories</option>
+                            <option value="social">Social Media</option>
+                            <option value="ui">UI Elements</option>
+                            <option value="brands">Brands</option>
+                            <option value="flags">Flags</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                        <input type="text" id="searchIcons" placeholder="Search icons..." class="search-input">
+                    </div>
+                </div>
+                
+                <div class="gallery-grid" id="iconGrid">
+                    <!-- Icons will be loaded here -->
+                </div>
+                
+                <div class="loading" id="loading">
+                    <i class="fas fa-spinner fa-spin"></i> Loading icons...
+                </div>
+                
+                <div class="no-icons" id="noIcons" style="display: none;">
+                    <i class="fas fa-folder-open"></i>
+                    <p>No icons found. Upload some icons to get started!</p>
+                </div>
+            </div>
+
+            <!-- Upload Tab -->
+            <div class="tab-content" id="upload">
+                <div class="upload-container">
+                    <h2>Upload New Icon</h2>
+                    
+                    <form id="uploadForm" class="upload-form">
+                        <div class="form-group">
+                            <label for="iconCategory">Category:</label>
+                            <select id="iconCategory" required>
+                                <option value="">Select Category</option>
+                                <option value="social">Social Media</option>
+                                <option value="ui">UI Elements</option>
+                                <option value="brands">Brands</option>
+                                <option value="flags">Flags</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="iconName">Icon Name:</label>
+                            <input type="text" id="iconName" placeholder="e.g., github, arrow-right" required>
+                            <small>Use lowercase letters and hyphens only</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="iconFile">Icon File:</label>
+                            <div class="file-upload">
+                                <input type="file" id="iconFile" accept=".svg,.png,.ico,.webp" required>
+                                <div class="file-upload-area">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <p>Click to select or drag & drop</p>
+                                    <small>Supported: SVG, PNG, ICO, WebP (max 50MB)</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="iconDescription">Description (optional):</label>
+                            <textarea id="iconDescription" placeholder="Brief description of the icon"></textarea>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> Upload Icon
+                            </button>
+                            <button type="reset" class="btn btn-secondary">
+                                <i class="fas fa-undo"></i> Reset
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div class="upload-preview" id="uploadPreview" style="display: none;">
+                        <h3>Preview</h3>
+                        <div class="preview-content">
+                            <div class="preview-icon" id="previewIcon"></div>
+                            <div class="preview-info">
+                                <p><strong>Name:</strong> <span id="previewName"></span></p>
+                                <p><strong>Category:</strong> <span id="previewCategory"></span></p>
+                                <p><strong>Size:</strong> <span id="previewSize"></span></p>
+                                <p><strong>CDN URL:</strong> <span id="previewUrl"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manage Tab -->
+            <div class="tab-content" id="manage">
+                <div class="manage-container">
+                    <h2>Manage Icons</h2>
+                    
+                    <div class="manage-controls">
+                        <select id="manageCategoryFilter" class="filter-select">
+                            <option value="">All Categories</option>
+                            <option value="social">Social Media</option>
+                            <option value="ui">UI Elements</option>
+                            <option value="brands">Brands</option>
+                            <option value="flags">Flags</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                        <button id="refreshIcons" class="btn btn-secondary">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                    
+                    <div class="manage-grid" id="manageGrid">
+                        <!-- Manage icons will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Tab -->
+            <div class="tab-content" id="info">
+                <div class="info-container">
+                    <h2>About My Icons</h2>
+                    
+                    <div class="info-section">
+                        <h3><i class="fas fa-rocket"></i> Quick Start</h3>
+                        <p>All icons are served via jsDelivr CDN using this URL pattern:</p>
+                        <code>https://cdn.jsdelivr.net/gh/dwirx/my-icons@main/icons/[category]/[filename]</code>
+                        
+                        <h4>Example:</h4>
+                        <code>https://cdn.jsdelivr.net/gh/dwirx/my-icons@main/icons/social/github.svg</code>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h3><i class="fas fa-code"></i> Usage Examples</h3>
+                        
+                        <h4>HTML:</h4>
+                        <pre><code>&lt;img src="https://cdn.jsdelivr.net/gh/dwirx/my-icons@main/icons/social/github.svg" alt="GitHub"&gt;</code></pre>
+                        
+                        <h4>CSS:</h4>
+                        <pre><code>.icon {
+    background-image: url('https://cdn.jsdelivr.net/gh/dwirx/my-icons@main/icons/social/github.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+}</code></pre>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h3><i class="fas fa-list"></i> Categories</h3>
+                        <ul>
+                            <li><strong>Social:</strong> Social media platform icons</li>
+                            <li><strong>UI:</strong> User interface elements</li>
+                            <li><strong>Brands:</strong> Company and brand logos</li>
+                            <li><strong>Flags:</strong> Country flags</li>
+                            <li><strong>Custom:</strong> Custom or miscellaneous icons</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h3><i class="fas fa-cog"></i> Helper Script</h3>
+                        <p>Use the included Node.js script for command-line operations:</p>
+                        <pre><code># List all icons
+node upload-icons.js list
+
+# Generate CDN URL
+node upload-icons.js url social github.svg
+
+# Validate icon file
+node upload-icons.js validate path/to/icon.svg</code></pre>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2024 My Icons. Powered by GitHub + jsDelivr CDN</p>
+        </footer>
+    </div>
+
+    <!-- Modal for icon details -->
+    <div class="modal" id="iconModal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-body">
+                <div class="icon-detail">
+                    <div class="icon-preview" id="modalIcon"></div>
+                    <div class="icon-info">
+                        <h3 id="modalName"></h3>
+                        <p><strong>Category:</strong> <span id="modalCategory"></span></p>
+                        <p><strong>CDN URL:</strong></p>
+                        <code id="modalUrl"></code>
+                        <button class="btn btn-primary copy-btn" data-clipboard-target="#modalUrl">
+                            <i class="fas fa-copy"></i> Copy URL
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 

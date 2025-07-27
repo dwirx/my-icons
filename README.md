@@ -82,7 +82,7 @@ git push origin main
 ### File Organization
 - Group related icons in subfolders
 - Use consistent naming patterns
-- Keep file sizes reasonable (< 100KB for PNG, < 10KB for SVG)
+- Keep file sizes reasonable (< 50MB for PNG, < 10MB for SVG)
 
 ## 🌐 CDN Benefits
 
