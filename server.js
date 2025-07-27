@@ -174,6 +174,30 @@ function handleApiRequest(req, res, parsedUrl) {
                 res.end(JSON.stringify({ success: false, error: error.message }));
             });
     }
+    else if (pathname === '/api/repo-info' && req.method === 'GET') {
+        // Get repository information
+        uploadHandler.autoGitManager.getRepositoryInfo()
+            .then(info => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, info }));
+            })
+            .catch(error => {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            });
+    }
+    else if (pathname === '/api/sync-repo' && req.method === 'POST') {
+        // Sync with original repository
+        uploadHandler.autoGitManager.syncWithOriginal()
+            .then(result => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, result }));
+            })
+            .catch(error => {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            });
+    }
     else if (pathname === '/api/upload' && req.method === 'POST') {
         // Handle file upload
         handleFileUpload(req, res);

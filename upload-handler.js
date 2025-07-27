@@ -2,12 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 const sharp = require('sharp');
+const AutoGitManager = require('./auto-git-manager');
 
 class IconUploadHandler {
     constructor() {
         this.iconsDir = path.join(__dirname, 'icons');
         this.maxFileSize = 50 * 1024 * 1024; // 50MB
         this.supportedFormats = ['.svg', '.png', '.ico', '.webp'];
+        this.autoGitManager = new AutoGitManager();
     }
 
     // Sanitize file name
@@ -146,6 +148,22 @@ class IconUploadHandler {
             // Create .gitkeep file if directory is empty
             this.createGitkeepIfNeeded(categoryDir);
 
+            // Auto commit and push changes
+            try {
+                const gitResult = await this.autoGitManager.autoCommitAndPush(
+                    `Add icon: ${fileName} to ${finalCategory}`,
+                    [filePath]
+                );
+                
+                if (gitResult.success) {
+                    console.log('✅ Auto git operations completed successfully');
+                } else {
+                    console.warn('⚠️  Auto git operations failed:', gitResult.error);
+                }
+            } catch (gitError) {
+                console.warn('⚠️  Auto git operations failed:', gitError.message);
+            }
+
             return {
                 success: true,
                 fileName: fileName,
@@ -154,7 +172,8 @@ class IconUploadHandler {
                 originalSize: originalSize,
                 compressedSize: processedBuffer.length,
                 size: processedBuffer.length,
-                url: `https://cdn.jsdelivr.net/gh/dwirx/my-icons@main/icons/${finalCategory}/${fileName}`
+                url: `https://cdn.jsdelivr.net/gh/dwirx/my-icons@main/icons/${finalCategory}/${fileName}`,
+                gitResult: gitResult || { success: false }
             };
 
         } catch (error) {
@@ -267,9 +286,25 @@ class IconUploadHandler {
                 }
             }
 
+            // Auto commit and push changes
+            try {
+                const gitResult = await this.autoGitManager.autoCommitAndPush(
+                    `Delete icon: ${fileName} from ${category}`
+                );
+                
+                if (gitResult.success) {
+                    console.log('✅ Auto git operations completed successfully');
+                } else {
+                    console.warn('⚠️  Auto git operations failed:', gitResult.error);
+                }
+            } catch (gitError) {
+                console.warn('⚠️  Auto git operations failed:', gitError.message);
+            }
+
             return {
                 success: true,
-                message: `File ${fileName} deleted successfully`
+                message: `File ${fileName} deleted successfully`,
+                gitResult: gitResult || { success: false }
             };
 
         } catch (error) {
