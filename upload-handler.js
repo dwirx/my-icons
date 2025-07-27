@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const sharp = require('sharp');
 
 class IconUploadHandler {
     constructor() {
@@ -94,7 +95,7 @@ class IconUploadHandler {
     }
 
     // Save file from buffer (for direct file upload)
-    async saveFileFromBuffer(fileBuffer, originalName, category, customFolder = null) {
+    async saveFileFromBuffer(fileBuffer, originalName, category, customFolder = null, compress = true) {
         try {
             // Create a temporary file object for validation
             const tempFile = {
@@ -123,8 +124,22 @@ class IconUploadHandler {
                 throw new Error(`File ${fileName} already exists in ${finalCategory}`);
             }
 
+            let processedBuffer = fileBuffer;
+            let originalSize = fileBuffer.length;
+
+            // Compress image if it's a supported format and compression is enabled
+            if (compress && this.isCompressibleFormat(fileExt)) {
+                try {
+                    processedBuffer = await this.compressImage(fileBuffer, fileExt);
+                    console.log(`Compressed ${originalName}: ${this.formatFileSize(originalSize)} → ${this.formatFileSize(processedBuffer.length)}`);
+                } catch (compressError) {
+                    console.warn(`Compression failed for ${originalName}, using original:`, compressError.message);
+                    processedBuffer = fileBuffer;
+                }
+            }
+
             // Save file directly from buffer
-            fs.writeFileSync(filePath, fileBuffer);
+            fs.writeFileSync(filePath, processedBuffer);
 
             // Create .gitkeep file if directory is empty
             this.createGitkeepIfNeeded(categoryDir);
@@ -134,12 +149,60 @@ class IconUploadHandler {
                 fileName: fileName,
                 category: finalCategory,
                 filePath: filePath,
-                size: fileBuffer.length,
+                originalSize: originalSize,
+                compressedSize: processedBuffer.length,
+                size: processedBuffer.length,
                 url: `https://cdn.jsdelivr.net/gh/dwirx/my-icons@main/icons/${finalCategory}/${fileName}`
             };
 
         } catch (error) {
             throw error;
+        }
+    }
+
+    // Check if format is compressible
+    isCompressibleFormat(ext) {
+        return ['.png', '.jpg', '.jpeg', '.webp'].includes(ext.toLowerCase());
+    }
+
+    // Compress image
+    async compressImage(buffer, ext) {
+        const extLower = ext.toLowerCase();
+        
+        try {
+            let sharpInstance = sharp(buffer);
+            
+            // Apply compression based on format
+            if (extLower === '.png') {
+                return await sharpInstance
+                    .png({ 
+                        quality: 80,
+                        compressionLevel: 9,
+                        progressive: true
+                    })
+                    .toBuffer();
+            } else if (extLower === '.jpg' || extLower === '.jpeg') {
+                return await sharpInstance
+                    .jpeg({ 
+                        quality: 80,
+                        progressive: true,
+                        mozjpeg: true
+                    })
+                    .toBuffer();
+            } else if (extLower === '.webp') {
+                return await sharpInstance
+                    .webp({ 
+                        quality: 80,
+                        effort: 6
+                    })
+                    .toBuffer();
+            } else {
+                // For other formats, return original buffer
+                return buffer;
+            }
+        } catch (error) {
+            console.error('Compression error:', error);
+            return buffer; // Return original if compression fails
         }
     }
 

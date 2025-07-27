@@ -30,6 +30,8 @@ const elements = {
     iconFile: document.getElementById('iconFile'),
     iconName: document.getElementById('iconName'),
     iconCategory: document.getElementById('iconCategory'),
+    iconDescription: document.getElementById('iconDescription'),
+    compressIcon: document.getElementById('compressIcon'),
 
     iconModal: document.getElementById('iconModal'),
     modalIcon: document.getElementById('modalIcon'),
@@ -309,6 +311,7 @@ function renderGallery() {
                 <h3>${icon.name}</h3>
                 <p>${icon.description || ''}</p>
                 <span class="category-badge">${icon.category}</span>
+                <small>${icon.size}${icon.originalSize ? ` (was ${icon.originalSize})` : ''}</small>
             </div>
         `;
     }).join('');
@@ -330,7 +333,7 @@ function renderManage() {
                     </div>
                     <div class="manage-card-info">
                         <h3>${icon.name}</h3>
-                        <p>${icon.category} • ${icon.size}</p>
+                        <p>${icon.category} • ${icon.size}${icon.originalSize ? ` (was ${icon.originalSize})` : ''}</p>
                     </div>
                 </div>
                 <div class="manage-card-actions">
@@ -509,6 +512,7 @@ async function uploadFile(file, name, category, customFolder) {
         formData.append('file', file);
         formData.append('category', finalCategory);
         formData.append('description', elements.iconDescription.value || '');
+        formData.append('compress', elements.compressIcon.checked);
         
         // Upload to server
         const response = await fetch('/api/upload', {
@@ -525,7 +529,8 @@ async function uploadFile(file, name, category, customFolder) {
                 category: result.category,
                 url: result.url,
                 description: elements.iconDescription.value || '',
-                size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+                size: (result.compressedSize / (1024 * 1024)).toFixed(2) + ' MB',
+                originalSize: result.originalSize ? (result.originalSize / (1024 * 1024)).toFixed(2) + ' MB' : null,
                 lastModified: new Date().toISOString()
             };
             
@@ -543,7 +548,13 @@ async function uploadFile(file, name, category, customFolder) {
             // Reload icons and update filters
             await loadIcons();
             
-            showNotification('Icon uploaded successfully!', 'success');
+            // Show compression info if file was compressed
+            let notificationMessage = 'Icon uploaded successfully!';
+            if (result.originalSize && result.compressedSize < result.originalSize) {
+                const savedPercent = ((result.originalSize - result.compressedSize) / result.originalSize * 100).toFixed(1);
+                notificationMessage = `Icon uploaded successfully! Compressed: ${savedPercent}% smaller`;
+            }
+            showNotification(notificationMessage, 'success');
         } else {
             throw new Error(result.error || 'Upload failed');
         }
