@@ -3,6 +3,7 @@ const CONFIG = {
     repository: 'dwirx/my-icons',
     branch: 'main',
     baseUrl: 'https://cdn.jsdelivr.net/gh',
+    localBaseUrl: '/icons',
     categories: ['social', 'ui', 'brands', 'flags', 'custom'],
     supportedFormats: ['.svg', '.png', '.ico', '.webp'],
     maxFileSize: 50 * 1024 * 1024 // 50MB
@@ -11,6 +12,7 @@ const CONFIG = {
 // Global variables
 let icons = [];
 let currentTab = 'gallery';
+let useLocal = false; // Toggle between local and CDN
 
 // DOM Elements
 const elements = {
@@ -112,6 +114,12 @@ function setupEventListeners() {
     const customFolderInput = document.getElementById('customFolder');
     if (customFolderInput) {
         customFolderInput.addEventListener('input', updatePreview);
+    }
+
+    // Source toggle
+    const sourceToggle = document.getElementById('sourceToggle');
+    if (sourceToggle) {
+        sourceToggle.addEventListener('change', handleSourceToggle);
     }
 
     // Modal
@@ -245,14 +253,17 @@ function renderGallery() {
     
     elements.noIcons.style.display = 'none';
     
-    const html = filteredIcons.map(icon => `
-        <div class="icon-card" onclick="showIconDetail('${icon.name}', '${icon.category}')">
-            <img src="${icon.url}" alt="${icon.name}" onerror="this.style.display='none'">
-            <h3>${icon.name}</h3>
-            <p>${icon.description || ''}</p>
-            <span class="category-badge">${icon.category}</span>
-        </div>
-    `).join('');
+    const html = filteredIcons.map(icon => {
+        const iconUrl = generateIconUrl(icon.category, icon.name);
+        return `
+            <div class="icon-card" onclick="showIconDetail('${icon.name}', '${icon.category}')">
+                <img src="${iconUrl}" alt="${icon.name}" onerror="this.style.display='none'">
+                <h3>${icon.name}</h3>
+                <p>${icon.description || ''}</p>
+                <span class="category-badge">${icon.category}</span>
+            </div>
+        `;
+    }).join('');
     
     elements.iconGrid.innerHTML = html;
 }
@@ -261,30 +272,33 @@ function renderGallery() {
 function renderManage() {
     const filteredIcons = getFilteredIcons();
     
-    const html = filteredIcons.map(icon => `
-        <div class="manage-card">
-            <div class="manage-card-header">
-                <div class="manage-card-icon">
-                    <img src="${icon.url}" alt="${icon.name}" onerror="this.style.display='none'">
+    const html = filteredIcons.map(icon => {
+        const iconUrl = generateIconUrl(icon.category, icon.name);
+        return `
+            <div class="manage-card">
+                <div class="manage-card-header">
+                    <div class="manage-card-icon">
+                        <img src="${iconUrl}" alt="${icon.name}" onerror="this.style.display='none'">
+                    </div>
+                    <div class="manage-card-info">
+                        <h3>${icon.name}</h3>
+                        <p>${icon.category} • ${icon.size}</p>
+                    </div>
                 </div>
-                <div class="manage-card-info">
-                    <h3>${icon.name}</h3>
-                    <p>${icon.category} • ${icon.size}</p>
+                <div class="manage-card-actions">
+                    <button class="btn btn-primary" onclick="copyIconUrl('${iconUrl}')">
+                        <i class="fas fa-copy"></i> Copy URL
+                    </button>
+                    <button class="btn btn-secondary" onclick="showIconDetail('${icon.name}', '${icon.category}')">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteIcon('${icon.name}', '${icon.category}')">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
                 </div>
             </div>
-            <div class="manage-card-actions">
-                <button class="btn btn-primary" onclick="copyIconUrl('${icon.url}')">
-                    <i class="fas fa-copy"></i> Copy URL
-                </button>
-                <button class="btn btn-secondary" onclick="showIconDetail('${icon.name}', '${icon.category}')">
-                    <i class="fas fa-eye"></i> View
-                </button>
-                <button class="btn btn-danger" onclick="deleteIcon('${icon.name}', '${icon.category}')">
-                    <i class="fas fa-trash"></i> Delete
-                </button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
     elements.manageGrid.innerHTML = html;
 }
@@ -363,12 +377,20 @@ function updatePreview() {
     if (file && name && category) {
         const finalName = sanitizeFileName(name);
         const finalCategory = category === 'custom' && customFolder ? `custom/${sanitizeFolderName(customFolder)}` : category;
-        const url = `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/${finalCategory}/${finalName}${getFileExtension(file.name)}`;
+        const fileName = finalName + getFileExtension(file.name);
         
-        elements.previewName.textContent = finalName + getFileExtension(file.name);
+        const cdnUrl = `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/${finalCategory}/${fileName}`;
+        const localUrl = `${CONFIG.localBaseUrl}/${finalCategory}/${fileName}`;
+        
+        elements.previewName.textContent = fileName;
         elements.previewCategory.textContent = finalCategory;
         elements.previewSize.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
-        elements.previewUrl.textContent = url;
+        elements.previewUrl.innerHTML = `
+            <div class="url-preview">
+                <div><strong>CDN URL:</strong> <code>${cdnUrl}</code></div>
+                <div><strong>Local URL:</strong> <code>${localUrl}</code></div>
+            </div>
+        `;
         
         // Show preview icon
         const reader = new FileReader();
@@ -507,14 +529,37 @@ function showIconDetail(name, category) {
     const icon = icons.find(i => i.name === name && i.category === category);
     if (!icon) return;
     
+    const iconUrl = generateIconUrl(category, name);
+    const cdnUrl = generateCdnUrl(category, name);
+    const localUrl = generateLocalUrl(category, name);
+    
     elements.modalName.textContent = icon.name;
     elements.modalCategory.textContent = icon.category;
-    elements.modalUrl.textContent = icon.url;
+    
+    // Show current URL and both options
+    elements.modalUrl.innerHTML = `
+        <div class="url-options">
+            <div class="current-url">
+                <strong>Current (${useLocal ? 'Local' : 'CDN'}):</strong><br>
+                <code>${iconUrl}</code>
+            </div>
+            <div class="url-alternatives">
+                <div class="url-option">
+                    <strong>CDN URL:</strong><br>
+                    <code>${cdnUrl}</code>
+                </div>
+                <div class="url-option">
+                    <strong>Local URL:</strong><br>
+                    <code>${localUrl}</code>
+                </div>
+            </div>
+        </div>
+    `;
     
     // Load icon in modal
     const ext = getFileExtension(icon.name);
     if (ext === '.svg') {
-        fetch(icon.url)
+        fetch(iconUrl)
             .then(response => response.text())
             .then(svg => {
                 elements.modalIcon.innerHTML = svg;
@@ -523,7 +568,7 @@ function showIconDetail(name, category) {
                 elements.modalIcon.innerHTML = '<i class="fas fa-image" style="font-size: 3rem; color: #6c757d;"></i>';
             });
     } else {
-        elements.modalIcon.innerHTML = `<img src="${icon.url}" alt="${icon.name}">`;
+        elements.modalIcon.innerHTML = `<img src="${iconUrl}" alt="${icon.name}">`;
     }
     
     elements.iconModal.style.display = 'block';
@@ -606,9 +651,44 @@ function initializeClipboard() {
     }
 }
 
+// Handle source toggle
+function handleSourceToggle() {
+    useLocal = document.getElementById('sourceToggle').checked;
+    const toggleLabel = document.getElementById('toggleLabel');
+    
+    if (useLocal) {
+        toggleLabel.textContent = 'Local';
+        showNotification('Switched to Local files', 'info');
+    } else {
+        toggleLabel.textContent = 'CDN';
+        showNotification('Switched to CDN', 'info');
+    }
+    
+    // Re-render current view
+    if (currentTab === 'gallery') {
+        renderGallery();
+    } else if (currentTab === 'manage') {
+        renderManage();
+    }
+}
+
+// Generate URL based on current source setting
+function generateIconUrl(category, filename) {
+    if (useLocal) {
+        return `${CONFIG.localBaseUrl}/${category}/${filename}`;
+    } else {
+        return `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/${category}/${filename}`;
+    }
+}
+
 // Utility function to generate CDN URL
 function generateCdnUrl(category, filename) {
     return `${CONFIG.baseUrl}/${CONFIG.repository}@${CONFIG.branch}/icons/${category}/${filename}`;
+}
+
+// Utility function to generate Local URL
+function generateLocalUrl(category, filename) {
+    return `${CONFIG.localBaseUrl}/${category}/${filename}`;
 }
 
 // Export functions for global access

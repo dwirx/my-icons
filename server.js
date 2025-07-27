@@ -34,6 +34,30 @@ const server = http.createServer((req, res) => {
         return;
     }
     
+    // Handle icons folder access
+    if (pathname.startsWith('/icons/')) {
+        const iconPath = path.join(__dirname, pathname);
+        const extname = path.extname(iconPath).toLowerCase();
+        
+        // Check if file exists
+        if (fs.existsSync(iconPath)) {
+            const contentType = mimeTypes[extname] || 'application/octet-stream';
+            fs.readFile(iconPath, (err, content) => {
+                if (err) {
+                    res.writeHead(500, { 'Content-Type': 'text/plain' });
+                    res.end('Error reading icon file');
+                } else {
+                    res.writeHead(200, { 'Content-Type': contentType });
+                    res.end(content);
+                }
+            });
+        } else {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end('Icon not found');
+        }
+        return;
+    }
+    
     // Default to index.html
     if (pathname === '/') {
         pathname = '/index.html';
